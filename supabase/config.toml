@@ -1,0 +1,3 @@
+# v6 test: require Supabase JWT validation before ai-chief is invoked.
+[functions.ai-chief]
+verify_jwt = true
