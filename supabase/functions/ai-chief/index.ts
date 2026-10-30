@@ -52,12 +52,15 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
       const rawError = await res.text();
       let providerCode = "UNKNOWN";
       let providerStatus = "UNKNOWN";
+      let providerReason = "UNKNOWN";
       try {
         const parsed = JSON.parse(rawError);
         providerCode = String(parsed?.error?.code ?? res.status);
         providerStatus = String(parsed?.error?.status ?? "UNKNOWN");
+        const reason = parsed?.error?.details?.find?.((d: { reason?: string }) => typeof d?.reason === "string")?.reason;
+        if (reason && /^[A-Z_]{3,64}$/.test(reason)) providerReason = reason;
       } catch { providerCode = String(res.status); }
-      console.error("Gemini request failed", { httpStatus: res.status, providerCode, providerStatus });
+      console.error("Gemini request failed", { httpStatus: res.status, providerCode, providerStatus, providerReason, model });
       const hints: Record<number, string> = {
         400: "AI 요청 형식 또는 모델 설정을 확인해 주세요.",
         401: "Gemini API 키를 확인해 주세요.",
@@ -67,7 +70,10 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
         500: "Gemini 서비스 내부 오류입니다. 잠시 후 재시도해 주세요.",
         503: "Gemini 서비스가 일시적으로 사용 불가능합니다."
       };
-      return json({ error: hints[res.status] || "Gemini API 요청이 실패했습니다.", providerStatus: res.status }, 502);
+      const diagnostic = providerStatus === "FAILED_PRECONDITION"
+        ? "Gemini 프로젝트의 결제 설정 또는 지역별 무료 이용 가능 여부를 확인해 주세요."
+        : hints[res.status] || "Gemini API 요청이 실패했습니다.";
+      return json({ error: diagnostic, providerStatus: res.status, providerCode: providerStatus, providerReason }, 502);
     }
     const raw = await res.json();
     const result = JSON.parse(raw?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
