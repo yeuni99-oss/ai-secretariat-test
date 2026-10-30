@@ -1,0 +1,9 @@
+# Never commit AI provider credentials or local Supabase secrets.
+.env
+.env.*
+!.env.example
+supabase/.env
+supabase/.env.*
+!.env.example
+supabase/.temp/
+*.pem
