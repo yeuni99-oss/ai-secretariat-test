@@ -76,12 +76,30 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
       return json({ error: diagnostic, providerStatus: res.status, providerCode: providerStatus, providerReason }, 502);
     }
     const raw = await res.json();
-    const result = JSON.parse(raw?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+    const candidate = raw?.candidates?.[0];
+    const parts = candidate?.content?.parts;
+    const responseText = Array.isArray(parts) ? parts.filter((p: { text?: unknown }) => typeof p?.text === "string").map((p: { text: string }) => p.text).join("\n").trim() : "";
+    if (!responseText) {
+      const finishReason = String(candidate?.finishReason || "UNKNOWN").slice(0, 50);
+      console.error("Gemini returned no text", { finishReason, hasCandidates: Boolean(raw?.candidates?.length) });
+      return json({ error: "AI가 분석 결과 텍스트를 반환하지 않았습니다.", diagnostic: "EMPTY_RESPONSE", finishReason }, 502);
+    }
+    let result: { team?: unknown; reason?: unknown; needsClarification?: unknown };
+    try {
+      const cleaned = responseText.replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "").trim();
+      const objectText = cleaned.startsWith("{") ? cleaned : cleaned.slice(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1);
+      result = JSON.parse(objectText);
+    } catch {
+      console.error("Gemini response JSON parse failed", { finishReason: String(candidate?.finishReason || "UNKNOWN").slice(0, 50), textLength: responseText.length });
+      return json({ error: "AI 응답을 JSON으로 해석하지 못했습니다.", diagnostic: "INVALID_JSON" }, 502);
+    }
     const allowed = ["도시개발 정보팀", "토목공학 콘텐츠팀", "프로그램 개발팀"];
-    if (!allowed.includes(result.team)) return json({ error: "AI 추천을 검증할 수 없습니다." }, 502);
+    if (!allowed.includes(String(result.team))) return json({ error: "AI 추천을 검증할 수 없습니다.", diagnostic: "INVALID_TEAM" }, 502);
     return json({ team: result.team, reason: String(result.reason || "").slice(0, 300),
       needsClarification: Boolean(result.needsClarification), mode: "ai", applied: false });
-  } catch {
-    return json({ error: "AI 분석 중 오류가 발생했습니다." }, 502);
+  } catch (err) {
+    const timeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    console.error("AI chief processing failed", { type: timeout ? "TIMEOUT" : "PROCESSING_ERROR" });
+    return json({ error: timeout ? "AI 응답 시간이 초과되었습니다." : "AI 응답 처리 중 오류가 발생했습니다.", diagnostic: timeout ? "TIMEOUT" : "PROCESSING_ERROR" }, 502);
   }
 });
