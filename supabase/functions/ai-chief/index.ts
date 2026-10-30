@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const key = Deno.env.get("GEMINI_API_KEY");
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
   if (!url || !anon || !key) return json({ error: "서버 설정이 완료되지 않았습니다." }, 503);
   const supabase = createClient(url, anon, { auth: { persistSession: false } });
   const { data: { user }, error } = await supabase.auth.getUser(auth.slice(7));
@@ -40,7 +41,7 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
 업무명: ${JSON.stringify(title)}
 업무 설명: ${JSON.stringify(description)}`;
   try {
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
