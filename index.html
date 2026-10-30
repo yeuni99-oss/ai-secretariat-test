@@ -25,12 +25,13 @@ const people=teams.flatMap(t=>t.people.map(p=>({name:p[0],role:p[1],detail:p[2],
 });}f=document.getElementById('meetingform');if(f){const meetingForm=f;meetingForm.addEventListener('submit',e=>{e.preventDefault();try{const d=new FormData(meetingForm);const title=String(d.get('title')||'').trim();if(!title){alert('회의 제목을 입력해 주세요.');return;}if(!Array.isArray(state.meetings))state.meetings=[];if(!Array.isArray(state.tasks))state.tasks=[];const attendeeSelect=meetingForm.querySelector('select[name="attendees"]');const attendees=attendeeSelect?Array.from(attendeeSelect.selectedOptions,o=>o.value):[];state.meetings.push({title,notes:String(d.get('notes')||''),attendees,time:new Date().toLocaleString('ko-KR')});const action=String(d.get('action')||'').trim();if(action)state.tasks.push({title:action,person:String(d.get('owner')||''),description:'회의 후속 업무: '+title,status:'지시',due:'',result:''});save();render();}catch(err){alert('회의 저장 오류: '+err.message);console.error('회의 저장 실패',err);}});};f=document.getElementById('taskform');if(f)f.onsubmit=e=>{e.preventDefault();let d=new FormData(f);state.tasks.push({title:d.get('title'),person:d.get('person'),description:d.get('description'),due:d.get('due'),status:'지시',result:''});save();render()}}function updateTask(i){const t=state.tasks[i];const next={'지시':'진행 중','진행 중':'검토 요청','검토 중':'승인 대기','검토 요청':'승인 대기','승인 대기':'완료','반려':'진행 중','완료':'완료'};if(t.status==='승인 대기'){const decision=prompt('대표 검토: 승인 또는 반려를 입력하세요','승인');if(decision===null)return;if(decision==='반려'){t.status='반려'}else if(decision==='승인'){t.status='완료'}else{alert('승인 또는 반려를 입력하세요');return}}else if(t.status==='완료'){alert('이미 완료된 업무입니다');return}else{t.status=next[t.status]||'진행 중';if(t.status==='검토 요청'){const result=prompt('검토할 업무 결과를 입력하세요',t.result||'');if(result===null)return;t.result=result}}save();render()}render();
 let cloud=null,cloudUser=null,cloudTimer=null,cloudBusy=false;
 const cloudStatus=(message)=>document.getElementById('cloudstatus').textContent=message;
+function updateLoginUI(){const signed=!!cloudUser;for(const id of ['email','password','signup'])document.getElementById(id).style.display=signed?'none':'';document.querySelector('#authform button[type="submit"]').style.display=signed?'none':'';document.getElementById('logout').style.display=signed?'':'none';document.getElementById('syncnow').style.display=signed?'':'none';}
 const cfg=window.CLOUD_CONFIG||{};
 if(cfg.url&&cfg.anonKey&&window.supabase){
  cloud=window.supabase.createClient(cfg.url,cfg.anonKey);
  cloudStatus('연결 준비됨 · 로그인해 주세요');
- cloud.auth.getUser().then(({data})=>{if(data.user){cloudUser=data.user;loadCloud()}});
- cloud.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){cloudUser=null;cloudStatus('로그아웃됨')}else if(event==='SIGNED_IN'&&session?.user&&!cloudUser){cloudUser=session.user;setTimeout(loadCloud,0)}});
+ cloud.auth.getUser().then(({data})=>{if(data.user){cloudUser=data.user;updateLoginUI();loadCloud()}});
+ cloud.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){cloudUser=null;updateLoginUI();cloudStatus('로그아웃됨')}else if(event==='SIGNED_IN'&&session?.user&&!cloudUser){cloudUser=session.user;updateLoginUI();setTimeout(loadCloud,0)}});
 }else{cloudStatus('로컬 모드 · config.js에 Supabase 정보를 입력하면 클라우드를 사용할 수 있습니다')}
 async function loadCloud(){
  if(!cloudUser||cloudBusy)return;
@@ -56,6 +57,6 @@ function queueCloudSave(){
 }
 document.getElementById('authform').onsubmit=async(e)=>{e.preventDefault();if(!cloud)return alert('먼저 config.js를 설정하세요');const {error}=await cloud.auth.signInWithPassword({email:document.getElementById('email').value,password:document.getElementById('password').value});cloudStatus(error?'로그인 오류: '+error.message:'로그인 완료')};
 document.getElementById('signup').onclick=async()=>{if(!cloud)return alert('먼저 config.js를 설정하세요');const {error}=await cloud.auth.signUp({email:document.getElementById('email').value,password:document.getElementById('password').value});cloudStatus(error?'가입 오류: '+error.message:'가입 요청 완료 · 이메일 확인이 필요할 수 있습니다')};
-document.getElementById('logout').onclick=async()=>{if(cloud)await cloud.auth.signOut();cloudUser=null;cloudStatus('로그아웃됨 · 로컬 데이터는 브라우저에 남아 있습니다')};
+document.getElementById('logout').onclick=async()=>{if(cloud)await cloud.auth.signOut();cloudUser=null;updateLoginUI();cloudStatus('로그아웃됨 · 로컬 데이터는 브라우저에 남아 있습니다')};
 document.getElementById('syncnow').onclick=()=>loadCloud();
-</script></body></html>
+updateLoginUI();</script></body></html>
