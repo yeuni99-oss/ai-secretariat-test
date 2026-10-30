@@ -47,7 +47,27 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
         generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 250 } }),
       signal: AbortSignal.timeout(15000)
     });
-    if (!res.ok) return json({ error: "AI 서비스가 응답하지 않았습니다." }, 502);
+    if (!res.ok) {
+      const rawError = await res.text();
+      let providerCode = "UNKNOWN";
+      let providerStatus = "UNKNOWN";
+      try {
+        const parsed = JSON.parse(rawError);
+        providerCode = String(parsed?.error?.code ?? res.status);
+        providerStatus = String(parsed?.error?.status ?? "UNKNOWN");
+      } catch { providerCode = String(res.status); }
+      console.error("Gemini request failed", { httpStatus: res.status, providerCode, providerStatus });
+      const hints: Record<number, string> = {
+        400: "AI 요청 형식 또는 모델 설정을 확인해 주세요.",
+        401: "Gemini API 키를 확인해 주세요.",
+        403: "Gemini API 키의 사용 권한 또는 제한 설정을 확인해 주세요.",
+        404: "Gemini 모델 이름과 사용 가능 여부를 확인해 주세요.",
+        429: "Gemini API 호출 한도 또는 할당량을 확인해 주세요.",
+        500: "Gemini 서비스 내부 오류입니다. 잠시 후 재시도해 주세요.",
+        503: "Gemini 서비스가 일시적으로 사용 불가능합니다."
+      };
+      return json({ error: hints[res.status] || "Gemini API 요청이 실패했습니다.", providerStatus: res.status }, 502);
+    }
     const raw = await res.json();
     const result = JSON.parse(raw?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
     const allowed = ["도시개발 정보팀", "토목공학 콘텐츠팀", "프로그램 개발팀"];
