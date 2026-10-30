@@ -40,7 +40,7 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
 업무명: ${JSON.stringify(title)}
 업무 설명: ${JSON.stringify(description)}`;
   try {
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
