@@ -46,7 +46,7 @@ JSON 객체만 출력: {"team":"팀명","reason":"한국어로 간결한 근거"
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 1024 } }),
-      signal: AbortSignal.timeout(15000)
+      signal: AbortSignal.timeout(45000)
     });
     if (!res.ok) {
       const rawError = await res.text();
